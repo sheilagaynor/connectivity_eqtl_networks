@@ -1,0 +1,70 @@
+#Take in arrayid from command, get tissue_id
+array_id <- as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
+base.dir <- "/GTEX_V8/"
+tissue_list <- read.table(paste0(base.dir,"Data/EQTL_Data_All/tissue_list.txt"), quote="\"", comment.char="", stringsAsFactors=FALSE)
+tissue_id <- tissue_list[array_id,]
+
+#First load in all necessary libraries
+library(tidyverse); library(stringr); library(magrittr)
+library(data.table); library(MatrixEQTL); library(foreach) 
+library(doMC); library(splines); library(MASS); library(qvalue)
+registerDoMC(1)
+
+#Make required functions for slicing and SNP positions
+makeSlice_Cov <- function(fileName){
+  sliced_data = SlicedData$new()
+  sliced_data$fileDelimiter = '\t'
+  sliced_data$fileOmitCharacters = "NA"
+  sliced_data$fileSkipRows = 1
+  sliced_data$fileSkipColumns = 1
+  sliced_data$fileSliceSize = 5000
+  sliced_data$LoadFile(fileName)
+  return(sliced_data)}
+makeSlice_Exp <- function(dataName){
+  phenotype_sub <- dataName[,5:dim(dataName)[2]]
+  sliced_data <- SlicedData$new()
+  sliced_data$CreateFromMatrix(as.matrix(phenotype_sub))
+  rownames(sliced_data) <- dataName$gene_id
+  return(sliced_data)}
+readSNPPos <- function(snp_pos_file){
+  if(str_detect(snp_pos_file, '.gz$')){
+    snp_pos_file <- str_c('zcat ', snp_pos_file)}
+  snp_pos_file %>% fread %>% as.data.frame %>% set_colnames(c('snpid',	'chr', 'pos'))}
+
+
+#Read in genotypes
+genotype_data = SlicedData$new();
+genotype_data$fileDelimiter = "\t";      
+genotype_data$fileOmitCharacters = "NA"; 
+genotype_data$fileSkipRows = 1;
+genotype_data$fileSkipColumns = 1;       
+genotype_data$fileSliceSize = 5000;      
+genotype_data$LoadFile(paste0(base.dir,"Data/EQTL_Data/",tissue_id,".dosage"));
+covariate_data <- makeSlice_Cov(paste0(base.dir,"Data/GTEx_Analysis_v8_eQTL_covariates/",tissue_id,".v8.covariates.txt"))
+snp_pos_data   <- readSNPPos(paste0(base.dir,"Data/EQTL_Data/",tissue_id,".pos"))
+phenotype_file_full  <- fread(paste0(base.dir,"Data/GTEx_Analysis_v8_eQTL_expression_matrices/",tissue_id,".v8.normalized_expression.bed.gz"))
+phenotype_data <- makeSlice_Exp( phenotype_file_full)
+gene_pos_data <- data.frame(phenotype_file_full[,c(4,1:3)]); names(gene_pos_data)[1:2] <- c('genes','chr')
+gene_pos_data$chr <- substring(gene_pos_data$chr, 4, nchar(gene_pos_data$chr))
+
+
+  #Run matrix eQTL on slices
+  matrixeqtl_obj = Matrix_eQTL_main(
+    genotype_data, phenotype_data, covariate_data,
+    snpspos               = snp_pos_data,      genepos               = gene_pos_data,
+    output_file_name      = NULL,      output_file_name.cis  = NULL,
+    pvOutputThreshold.cis = 1e-1,      pvOutputThreshold = 1e-4,
+    min.pv.by.genesnp     = FALSE,      cisDist               = 1e6,
+    useModel              = modelLINEAR,      pvalue.hist           = FALSE )
+  
+  trans <- cbind(matrixeqtl_obj$trans$eqtls, 'trans');  cis <- cbind(matrixeqtl_obj$cis$eqtls, 'cis')
+  names(trans)[7] <- 'location'; names(cis)[7] <- 'location'
+  eqtl_out <- rbind(trans, cis); rm(matrixeqtl_obj); rm(trans); rm(cis)
+  setDT(eqtl_out)
+  eqtls <- eqtl_out[eqtl_out$FDR < 0.25,]; rm(eqtl_out)
+  
+  saveRDS(eqtls, file=paste0(base.dir,"Out/Edges_matrixeqtl/Edges_matrixeqtl_",
+                                      tissue_id, ".Rds"))
+  
+  
+  
