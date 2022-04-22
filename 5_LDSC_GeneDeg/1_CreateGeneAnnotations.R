@@ -2,6 +2,8 @@
 #### Step 1: Create annot files
 ###############################################
 array_id <- as.numeric(Sys.getenv('SLURM_ARRAY_TASK_ID'))
+args <- commandArgs(TRUE)
+meas <- as.character(args[[1]]) 
 
 ################
 #In R
@@ -18,9 +20,20 @@ tissue_list <- read.table(paste0(base.dir,"Data/EQTL_Data_All/tissue_list.txt"),
 #Loop through to prepare .annot for each tissue
 tissue_id <- tissue_list[,1][array_id]
 Sys.setenv(tissue_id=tissue_id)
-degree_in <- readRDS(paste0('/GTEX_V8/Out/Degree_gene/Degree_BH_',tissue_id,'.Rds'))
-degree_in$network_annot <- as.numeric(degree_in$bh_ind_deg_all_0.05 >= 0)
-degree_in$degree_annot <- as.numeric(degree_in$bh_wgt_deg_all_0.05 >= quantile(degree_in$bh_wgt_deg_all_0.05, 0.75, na.rm=T))
+Sys.setenv(meas=meas)
+if (meas == 'bh'){
+  degree_in <- readRDS(paste0('/GTEX_V8/Out/Degree_gene/Degree_BH_',tissue_id,'.Rds'))
+  degree_in$network_annot <- as.numeric(degree_in$bh_ind_deg_all_0.05 >= 0)
+  degree_in$degree_annot <- as.numeric(degree_in$bh_wgt_deg_all_0.05 >= quantile(degree_in$bh_wgt_deg_all_0.05, 0.75, na.rm=T))
+} else if (meas == 'lfdr'){
+  degree_in <- readRDS(paste0('/GTEX_V8/Out/Degree_gene/Degree_Oth_',tissue_id,'.Rds'))
+  degree_in$network_annot <- as.numeric(degree_in$lfdr_ind_deg_all_0.05 >= 0)
+  degree_in$degree_annot <- as.numeric(degree_in$lfdr_wgt_deg_all_0.05 >= quantile(degree_in$lfdr_wgt_deg_all_0.05, 0.75, na.rm=T))
+} else if (meas == "qval"){
+  degree_in <- readRDS(paste0('/GTEX_V8/Out/Degree_gene/Degree_Oth_',tissue_id,'.Rds'))
+  degree_in$network_annot <- as.numeric(degree_in$qval_ind_deg_all_0.05 >= 0)
+  degree_in$degree_annot <- as.numeric(degree_in$qval_wgt_deg_all_0.05 >= quantile(degree_in$qval_wgt_deg_all_0.05, 0.75, na.rm=T))
+}
 setkey(degree_in,node)
 degree_mapped <- merge(degree_in[,c('node','network_annot','degree_annot')], bed_map, by='node', all.y=T)
 
@@ -30,7 +43,7 @@ degree_mapped <- merge(degree_in[,c('node','network_annot','degree_annot')], bed
     #Prepare annots
     chr_ind <- which(substring(degree_mapped$CHR,4,nchar(degree_mapped$CHR)) == chr)
     degree_chr <- degree_mapped[chr_ind,]
-    bim_in <- fread(paste0('/ldsc/1000G_EUR_Phase3_plink/1000G.EUR.QC.',chr,'.bim'))
+    bim_in <- fread(paste0('/ldsc_2020/1000G_EUR_Phase3_plink/1000G.EUR.QC.',chr,'.bim'))
     names(bim_in) <- c('CHR','SNP','CM','BP','REF','ALT')
     bim_in$START_WINDOW <- bim_in$BP;   bim_in$END_WINDOW <- bim_in$BP
     key_col <- c('START_WINDOW', 'END_WINDOW')
@@ -46,23 +59,25 @@ degree_mapped <- merge(degree_in[,c('node','network_annot','degree_annot')], bed
     set(bed_chr,which(is.na(bed_chr[,'degree_annot'])),10L,0)
     bed_chr <- setorder(bed_chr, BP)
     #Get relevant annot files and save
-    baseld <- fread( paste0('/ldsc/1000G_Phase3_baselineLD_v2.2_ldscores/baselineLD.',chr,'.annot.gz'))
+    baseld <- fread( paste0('/ldsc_2020/1000G_Phase3_baselineLD_v2.2_ldscores/baselineLD.',chr,'.annot.gz'))
     write.table(baseld[baseld$SNP %in% bed_chr$SNP,],
-                file=gzfile(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/baselineLD.',chr,'.annot.gz')),
+                file=gzfile(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/',meas,'_gene_baselineLD.',chr,'.annot.gz')),
                 row.names = FALSE, sep="\t", quote = FALSE)
     write.table(bed_chr[,c('CHR','BP','SNP','CM','network_annot')],
-                file=gzfile(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/network_annot.',chr,'.annot.gz')),
+                file=gzfile(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/',meas,'_gene_network_annot.',chr,'.annot.gz')),
                 row.names = FALSE, sep="\t", quote = FALSE)
     write.table(bed_chr[,c('CHR','BP','SNP','CM','degree_annot')],
-                file=gzfile(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/degree_annot.',chr,'.annot.gz')),
+                file=gzfile(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/',meas,'_gene_degree_annot.',chr,'.annot.gz')),
                 row.names = FALSE, sep="\t", quote = FALSE)
     #Prepare frq, bim/bed/fam
-    snp_list <- fread(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/network_annot.',chr,'.annot.gz'))
-    write.table(data.frame(snp_list$SNP),file=paste0("/GTEX_V8/Data/LDSC_GeneDegree_Bin/",tissue_id,"/kept_snps.snplist"),row.names=FALSE,quote=FALSE,col.names=FALSE,sep="\t")
-    frq <- fread(paste0('/ldsc/1000G_Phase3_frq/1000G.EUR.QC.',chr,'.frq'))
+    snp_list <- fread(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/',meas,'_gene_network_annot.',chr,'.annot.gz'))
+    write.table(data.frame(snp_list$SNP),file=paste0("/GTEX_V8/Data/LDSC_GeneDegree_Bin/",tissue_id,'/',meas,"_gene_kept_snps.snplist"),row.names=FALSE,quote=FALSE,col.names=FALSE,sep="\t")
+    frq <- fread(paste0('/ldsc_2020/1000G_Phase3_frq/1000G.EUR.QC.',chr,'.frq'))
     write.table(frq[frq$SNP %in% snp_list$SNP,],
-                file=(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/1000G.EUR.QC.',chr,'.frq')),
+                file=(paste0('/GTEX_V8/Data/LDSC_GeneDegree_Bin/',tissue_id,'/',meas,'_gene_1000G.EUR.QC.',chr,'.frq')),
                 row.names = FALSE, sep="\t", quote = FALSE)
     #Subset plink files by tissue/chrom   
-    system("module load plink/1.90-fasrc01; plink --bfile /ldsc/1000G_EUR_Phase3_plink/1000G.EUR.QC.$chr --extract /GTEX_V8/Data/LDSC_GeneDegree_Bin/$tissue_id'/kept_snps.snplist' --make-bed --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$tissue_id'/1000G.EUR.QC.'$chr ")
+    system("module load plink/1.90-fasrc01; plink --bfile /ldsc_2020/1000G_EUR_Phase3_plink/1000G.EUR.QC.$chr \\
+           --extract /GTEX_V8/Data/LDSC_GeneDegree_Bin/$tissue_id'/'$meas'_gene_kept_snps.snplist' \\
+           --make-bed --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$tissue_id'/'$meas'_gene_1000G.EUR.QC.'$chr ")
   }

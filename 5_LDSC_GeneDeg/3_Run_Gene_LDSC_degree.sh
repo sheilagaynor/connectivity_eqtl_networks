@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -t 3-00:00
 #SBATCH --array=0-28
-#SBATCH -p serial_requeue,xlin-lab,canstat-p01
+#SBATCH -p serial_requeue,xlin-lab
 #SBATCH -o %j.out
 #SBATCH -e %j.err
 #SBATCH --mem=52Gb
@@ -23,15 +23,15 @@ for TISSUE in ${LIST[${SLURM_ARRAY_TASK_ID}]}
 do
     for SUMSTAT in "${SUMLIST[@]}"
     do
-     python ldsc.py \
+     python /ldsc_2020/ldsc.py \
       --h2 /sumstats/$SUMSTAT \
-      --ref-ld-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/baselineLD.',/GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/degree_annot.' \
-      --frqfile-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/1000G.EUR.QC.' \
-      --w-ld-chr /ldsc/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
+      --ref-ld-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_baselineLD.',/GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_degree_annot.' \
+      --frqfile-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_1000G.EUR.QC.' \
+      --w-ld-chr /ldsc_2020/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
       --overlap-annot \
       --print-coefficients \
       --print-delete-vals \
-      --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/baseline.degree_annot.'$SUMSTAT
+      --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_baseline.degree_annot.'$SUMSTAT
      done
 done
 
@@ -39,14 +39,30 @@ for TISSUE in ${LIST[${SLURM_ARRAY_TASK_ID}]}
 do
     for SUMSTAT in "${SUMLIST[@]}"
     do
-     python ldsc.py \
+     python /ldsc_2020/ldsc.py \
       --h2 /sumstats/$SUMSTAT \
-      --ref-ld-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/degree_annot.' \
-      --frqfile-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/1000G.EUR.QC.' \
-      --w-ld-chr /ldsc/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
+      --ref-ld-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_baselineLD.',/GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_degree_annot.' \
+      --frqfile-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_1000G.EUR.QC.' \
+      --w-ld-chr /ldsc_2020/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
       --overlap-annot \
       --print-coefficients \
       --print-delete-vals \
-      --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/degree_annot.'$SUMSTAT
+      --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_baseline.degree_annot.'$SUMSTAT
+     done
+done
+
+for TISSUE in ${LIST[${SLURM_ARRAY_TASK_ID}]}
+do
+    for SUMSTAT in "${SUMLIST[@]}"
+    do
+     python /ldsc_2020/ldsc.py \
+      --h2 /sumstats/$SUMSTAT \
+      --ref-ld-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_baselineLD.',/GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_degree_annot.' \
+      --frqfile-chr /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_1000G.EUR.QC.' \
+      --w-ld-chr /ldsc_2020/1000G_Phase3_weights_hm3_no_MHC/weights.hm3_noMHC. \
+      --overlap-annot \
+      --print-coefficients \
+      --print-delete-vals \
+      --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_baseline.degree_annot.'$SUMSTAT
      done
 done

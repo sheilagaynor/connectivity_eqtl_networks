@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -t 0-12:00
 #SBATCH --array=0-28
-#SBATCH -p serial_requeue,xlin-lab,canstat-p01
+#SBATCH -p serial_requeue,xlin-lab
 #SBATCH -o %j.out
 #SBATCH -e %j.err
 #SBATCH --mem=32Gb
@@ -18,11 +18,37 @@ for TISSUE in ${LIST[${SLURM_ARRAY_TASK_ID}]}
 do
   for CHR in {1..22}
   do
-    python ldsc.py \
+    python /ldsc_2020/ldsc.py \
     --l2 \
-    --bfile /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/1000G.EUR.QC.'$CHR \
+    --bfile /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_1000G.EUR.QC.'$CHR \
     --ld-wind-cm 1 \
-    --annot /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/baselineLD.'$CHR'.annot.gz' \
-    --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/baselineLD.'$CHR
+    --annot /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_baselineLD.'$CHR'.annot.gz' \
+    --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/bh_gene_baselineLD.'$CHR
+  done
+done
+
+for TISSUE in ${LIST[${SLURM_ARRAY_TASK_ID}]}
+do
+  for CHR in {1..22}
+  do
+    python /ldsc_2020/ldsc.py \
+    --l2 \
+    --bfile /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_1000G.EUR.QC.'$CHR \
+    --ld-wind-cm 1 \
+    --annot /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_baselineLD.'$CHR'.annot.gz' \
+    --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/lfdr_gene_baselineLD.'$CHR
+  done
+done
+
+for TISSUE in ${LIST[${SLURM_ARRAY_TASK_ID}]}
+do
+  for CHR in {1..22}
+  do
+    python /ldsc_2020/ldsc.py \
+    --l2 \
+    --bfile /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_1000G.EUR.QC.'$CHR \
+    --ld-wind-cm 1 \
+    --annot /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_baselineLD.'$CHR'.annot.gz' \
+    --out /GTEX_V8/Data/LDSC_GeneDegree_Bin/$TISSUE'/qval_gene_baselineLD.'$CHR
   done
 done
